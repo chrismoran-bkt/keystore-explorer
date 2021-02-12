@@ -46,12 +46,11 @@ public class LnfUtil {
 	}
 
 	/**
-	 * Do the supplied l&f object and l&f info object refer to the same l&f?
+	 * Do the supplied l&amp;f object and l&amp;f info object refer to the same
+	 * l&amp;f?
 	 *
-	 * @param lookAndFeel
-	 *            L&F object
-	 * @param lookAndFeelInfo
-	 *            L&F info object
+	 * @param lookAndFeel     L&amp;F object
+	 * @param lookAndFeelInfo L&amp;F info object
 	 * @return True if they do
 	 */
 	public static boolean matchLnf(LookAndFeel lookAndFeel, UIManager.LookAndFeelInfo lookAndFeelInfo) {
@@ -59,7 +58,7 @@ public class LnfUtil {
 	}
 
 	/**
-	 * Install L&Fs.
+	 * Install L&amp;Fs.
 	 */
 	public static void installLnfs() {
 		// Flat LaF
@@ -75,10 +74,9 @@ public class LnfUtil {
 	}
 
 	/**
-	 * Use supplied l&f.
+	 * Use supplied l&amp;f.
 	 *
-	 * @param lnfClassName
-	 *            L&f class name
+	 * @param lnfClassName L&amp;f class name
 	 */
 	public static void useLnf(String lnfClassName) {
 		try {
@@ -97,22 +95,15 @@ public class LnfUtil {
 	public static String useLnfForPlatform() {
 		String lnfClassName = null;
 
-		if (OperatingSystem.isWindows()) {
+		if (OperatingSystem.isMacOs() || OperatingSystem.isWindows()) {
 			lnfClassName = UIManager.getSystemLookAndFeelClassName();
-		} else if (OperatingSystem.isMacOs())  {
-			if (isVAquaAvailable()){
-				lnfClassName = VAQUA_LAF_CLASS;
-			} else {
-				lnfClassName = UIManager.getSystemLookAndFeelClassName();
-			}
 		} else {
 			String xdgCurrentDesktop = System.getenv("XDG_CURRENT_DESKTOP");
-			if ("Unity".equalsIgnoreCase(xdgCurrentDesktop)
+			if ("Unity".equalsIgnoreCase(xdgCurrentDesktop) 
 					|| "XFCE".equalsIgnoreCase(xdgCurrentDesktop)
-					|| "GNOME".equalsIgnoreCase(xdgCurrentDesktop)
+					|| "GNOME".equalsIgnoreCase(xdgCurrentDesktop) 
 					|| "X-Cinnamon".equalsIgnoreCase(xdgCurrentDesktop)
-					|| "LXDE".equalsIgnoreCase(xdgCurrentDesktop)
-					) {
+					|| "LXDE".equalsIgnoreCase(xdgCurrentDesktop)) {
 				lnfClassName = UIManager.getSystemLookAndFeelClassName();
 			} else {
 				lnfClassName = FlatLightLaf.class.getName();
@@ -125,19 +116,19 @@ public class LnfUtil {
 	}
 
 	/**
-	 * Is a Mac l&f (Aqua) currently being used?
+	 * Is a Mac l&amp;f (Aqua) currently being used?
 	 *
 	 * @return True if it is
 	 */
 	public static boolean usingMacLnf() {
 		String lnfClass = UIManager.getLookAndFeel().getClass().getName();
 
-		return OperatingSystem.isMacOs() && (
-				UIManager.getSystemLookAndFeelClassName().equals(lnfClass) || lnfClass.equals(VAQUA_LAF_CLASS)) ;
+		return OperatingSystem.isMacOs()
+				&& (UIManager.getSystemLookAndFeelClassName().equals(lnfClass) || lnfClass.equals(VAQUA_LAF_CLASS));
 	}
 
 	/**
-	 * Is the Metal l&f currently being used?
+	 * Is the Metal l&amp;f currently being used?
 	 *
 	 * @return True if it is
 	 */
@@ -146,7 +137,7 @@ public class LnfUtil {
 	}
 
 	/**
-	 * Is the Windows l&f currently being used?
+	 * Is the Windows l&amp;f currently being used?
 	 *
 	 * @return True if it is
 	 */
@@ -155,9 +146,9 @@ public class LnfUtil {
 	}
 
 	/**
-	 * Is the supplied l&f currently being used?
+	 * Is the supplied l&amp;f currently being used?
 	 *
-	 * @return l&f class
+	 * @return l&amp;f class
 	 */
 	private static boolean usingLnf(String lnfClass) {
 		String currentLnfClass = UIManager.getLookAndFeel().getClass().getName();
@@ -165,7 +156,7 @@ public class LnfUtil {
 	}
 
 	/**
-	 * Does the currently active l&f use a dark color scheme?
+	 * Does the currently active l&amp;f use a dark color scheme?
 	 */
 	public static boolean isDarkLnf() {
 		return UIManager.getLookAndFeel().getClass().isAssignableFrom(FlatDarkLaf.class)

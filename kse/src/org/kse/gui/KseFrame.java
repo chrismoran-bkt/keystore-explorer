@@ -53,7 +53,10 @@ import java.security.Provider;
 import java.security.cert.Certificate;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -113,6 +116,7 @@ import org.kse.gui.actions.CutKeyPairAction;
 import org.kse.gui.actions.CutTrustedCertificateAction;
 import org.kse.gui.actions.DeleteKeyAction;
 import org.kse.gui.actions.DeleteKeyPairAction;
+import org.kse.gui.actions.DeleteMultipleEntriesAction;
 import org.kse.gui.actions.DeleteTrustedCertificateAction;
 import org.kse.gui.actions.DetectFileTypeAction;
 import org.kse.gui.actions.ExamineClipboardAction;
@@ -205,7 +209,7 @@ public final class KseFrame implements StatusBar {
 	public static final int DEFAULT_HEIGHT = 450;
 
 	// Maximum number of recent files to maintain in file menu
-	public static final int RECENT_FILES_SIZE = 6;
+	public static final int RECENT_FILES_SIZE = 9;
 
 	private ArrayList<KeyStoreHistory> histories = new ArrayList<>();
 	private ArrayList<JTable> keyStoreTables = new ArrayList<>();
@@ -487,6 +491,9 @@ public final class KseFrame implements StatusBar {
 	private final SetKeyPairPasswordAction setKeyPairPasswordAction = new SetKeyPairPasswordAction(this);
 	private final DeleteKeyPairAction deleteKeyPairAction = new DeleteKeyPairAction(this);
 	private final RenameKeyPairAction renameKeyPairAction = new RenameKeyPairAction(this);
+
+	private final DeleteMultipleEntriesAction deleteMultipleEntriesAction = new DeleteMultipleEntriesAction(this);
+
 	private final TrustedCertificateDetailsAction trustedCertificateDetailsAction = new TrustedCertificateDetailsAction(
 			this);
 	private final TrustedCertificatePublicKeyDetailsAction trustedCertificatePublicKeyDetailsAction = new TrustedCertificatePublicKeyDetailsAction(
@@ -864,12 +871,13 @@ public final class KseFrame implements StatusBar {
 		jmChangeType.setEnabled(false);
 		jmTools.add(jmChangeType);
 
-		jrbmiChangeTypeJks = new JRadioButtonMenuItem(changeTypeJksAction);
-		PlatformUtil.setMnemonic(jrbmiChangeTypeJks, res.getString("KseFrame.jrbmiChangeTypeJks.mnemonic").charAt(0));
-		jrbmiChangeTypeJks.setToolTipText(null);
-		new StatusBarChangeHandler(jrbmiChangeTypeJks, (String) changeTypeJksAction.getValue(Action.LONG_DESCRIPTION),
-				this);
-		jmChangeType.add(jrbmiChangeTypeJks);
+		jrbmiChangeTypePkcs12 = new JRadioButtonMenuItem(changeTypePkcs12Action);
+		PlatformUtil.setMnemonic(jrbmiChangeTypePkcs12, res.getString("KseFrame.jrbmiChangeTypePkcs12.mnemonic")
+				.charAt(0));
+		jrbmiChangeTypePkcs12.setToolTipText(null);
+		new StatusBarChangeHandler(jrbmiChangeTypePkcs12,
+				(String) changeTypePkcs12Action.getValue(Action.LONG_DESCRIPTION), this);
+		jmChangeType.add(jrbmiChangeTypePkcs12);
 
 		jrbmiChangeTypeJceks = new JRadioButtonMenuItem(changeTypeJceksAction);
 		PlatformUtil.setMnemonic(jrbmiChangeTypeJceks, res.getString("KseFrame.jrbmiChangeTypeJceks.mnemonic")
@@ -879,13 +887,12 @@ public final class KseFrame implements StatusBar {
 				(String) changeTypeJceksAction.getValue(Action.LONG_DESCRIPTION), this);
 		jmChangeType.add(jrbmiChangeTypeJceks);
 
-		jrbmiChangeTypePkcs12 = new JRadioButtonMenuItem(changeTypePkcs12Action);
-		PlatformUtil.setMnemonic(jrbmiChangeTypePkcs12, res.getString("KseFrame.jrbmiChangeTypePkcs12.mnemonic")
-				.charAt(0));
-		jrbmiChangeTypePkcs12.setToolTipText(null);
-		new StatusBarChangeHandler(jrbmiChangeTypePkcs12,
-				(String) changeTypePkcs12Action.getValue(Action.LONG_DESCRIPTION), this);
-		jmChangeType.add(jrbmiChangeTypePkcs12);
+		jrbmiChangeTypeJks = new JRadioButtonMenuItem(changeTypeJksAction);
+		PlatformUtil.setMnemonic(jrbmiChangeTypeJks, res.getString("KseFrame.jrbmiChangeTypeJks.mnemonic").charAt(0));
+		jrbmiChangeTypeJks.setToolTipText(null);
+		new StatusBarChangeHandler(jrbmiChangeTypeJks, (String) changeTypeJksAction.getValue(Action.LONG_DESCRIPTION),
+				this);
+		jmChangeType.add(jrbmiChangeTypeJks);
 
 		jrbmiChangeTypeBksV1 = new JRadioButtonMenuItem(changeTypeBksV1Action);
 		PlatformUtil.setMnemonic(jrbmiChangeTypeBksV1, res.getString("KseFrame.jrbmiChangeTypeBksV1.mnemonic").charAt(0));
@@ -901,19 +908,19 @@ public final class KseFrame implements StatusBar {
 				this);
 		jmChangeType.add(jrbmiChangeTypeBks);
 
-		jrbmiChangeTypeBcfks = new JRadioButtonMenuItem(changeTypeBcfksAction);
-		PlatformUtil.setMnemonic(jrbmiChangeTypeBcfks, res.getString("KseFrame.jrbmiChangeTypeBcfks.mnemonic").charAt(0));
-		jrbmiChangeTypeBcfks.setToolTipText(null);
-		new StatusBarChangeHandler(jrbmiChangeTypeBcfks, (String) changeTypeBcfksAction.getValue(Action.LONG_DESCRIPTION),
-				this);
-		jmChangeType.add(jrbmiChangeTypeBcfks);
-
 		jrbmiChangeTypeUber = new JRadioButtonMenuItem(changeTypeUberAction);
 		PlatformUtil.setMnemonic(jrbmiChangeTypeUber, res.getString("KseFrame.jrbmiChangeTypeUber.mnemonic").charAt(0));
 		jrbmiChangeTypeUber.setToolTipText(null);
 		new StatusBarChangeHandler(jrbmiChangeTypeUber,
 				(String) changeTypeUberAction.getValue(Action.LONG_DESCRIPTION), this);
 		jmChangeType.add(jrbmiChangeTypeUber);
+
+		jrbmiChangeTypeBcfks = new JRadioButtonMenuItem(changeTypeBcfksAction);
+		PlatformUtil.setMnemonic(jrbmiChangeTypeBcfks, res.getString("KseFrame.jrbmiChangeTypeBcfks.mnemonic").charAt(0));
+		jrbmiChangeTypeBcfks.setToolTipText(null);
+		new StatusBarChangeHandler(jrbmiChangeTypeBcfks, (String) changeTypeBcfksAction.getValue(Action.LONG_DESCRIPTION),
+				this);
+		jmChangeType.add(jrbmiChangeTypeBcfks);
 
 		ButtonGroup changeTypeGroup = new ButtonGroup();
 		changeTypeGroup.add(jrbmiChangeTypeJks);
@@ -1525,7 +1532,7 @@ public final class KseFrame implements StatusBar {
 		jtKeyStore.setRowSorter(sorter);
 
 		jtKeyStore.setShowGrid(false);
-		jtKeyStore.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		jtKeyStore.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		jtKeyStore.getTableHeader().setReorderingAllowed(false);
 		jtKeyStore.setAutoResizeMode(autoResizeMode);
 		jtKeyStore.setRowHeight(Math.max(18, jtKeyStore.getRowHeight())); // min. height of 18 because of 16x16 icons
@@ -1634,17 +1641,23 @@ public final class KseFrame implements StatusBar {
 		int nrEntriesBeforeDeletion = getNumberOfEntries();
 
 		try {
-			if (KeyStoreUtil.isKeyPairEntry(alias, keyStore)) {
-				deleteKeyPairAction.deleteSelectedEntry();
-			} else if (KeyStoreUtil.isTrustedCertificateEntry(alias, keyStore)) {
-				deleteTrustedCertificateAction.deleteSelectedEntry();
+			String[] aliases = getSelectedEntryAliases();
+			if (aliases.length == 1) {
+				// if only one entry is selected, use the specific action as it displays a nice warning dialog
+				if (KeyStoreUtil.isKeyPairEntry(alias, keyStore)) {
+					deleteKeyPairAction.deleteSelectedEntry();
+				} else if (KeyStoreUtil.isTrustedCertificateEntry(alias, keyStore)) {
+					deleteTrustedCertificateAction.deleteSelectedEntry();
+				} else {
+					deleteKeyAction.deleteSelectedEntry();
+				}
 			} else {
-				deleteKeyAction.deleteSelectedEntry();
+				deleteMultipleEntriesAction.deleteSelectedEntries();
 			}
 
 			// if one entry was deleted, select next entry
 			if ((getNumberOfEntries() < nrEntriesBeforeDeletion) && (nextAlias != null)) {
-				setSelectedEntryByAlias(nextAlias);
+				setSelectedEntriesByAliases(nextAlias);
 			}
 		} catch (Exception ex) {
 			DError.displayError(frame, ex);
@@ -2511,27 +2524,63 @@ public final class KseFrame implements StatusBar {
 		return (String) jtKeyStore.getValueAt(row, 3);
 	}
 
-	private String getNextEntrysAlias() {
+	/**
+	 * Get the aliases of all entries currently selected in the KeyStore
+	 *
+	 * @return Selected aliases (may be an empty array, but never null)
+	 */
+	public String[] getSelectedEntryAliases() {
 		JTable jtKeyStore = getActiveKeyStoreTable();
-		int row = jtKeyStore.getSelectedRow();
+		int[] rows = jtKeyStore.getSelectedRows();
+
+		String[] retval = new String[rows.length];
+
+		for (int i = 0; i < rows.length; i++) {
+			retval[i] = (String) jtKeyStore.getValueAt(rows[i], 3);
+		}
+
+		return retval;
+	}
+
+	public String getNextEntrysAlias() {
+		JTable jtKeyStore = getActiveKeyStoreTable();
+		int[] rows = jtKeyStore.getSelectedRows();
 
 		// no row selected
-		if (row == -1) {
+		if (rows.length == 0) {
 			return null;
 		}
 
-
 		int rowCount = jtKeyStore.getModel().getRowCount();
-		if (rowCount < 2) {
-			// only one row
+		if ( rows.length == rowCount) {
+			// all rows are selected
 			return null;
 		} else {
-			if (row < (rowCount - 1)) {
-				// selected row is not the last one, return alias of next row
-				return (String) jtKeyStore.getValueAt(row + 1, 3);
+			int idx;
+			int max = Arrays.stream(rows).max().getAsInt();
+			if (max < (rowCount - 1)) {
+				// last selected row is not the last one, return alias of next row
+				idx = max + 1;
 			} else {
-				// selected row is the last one, return alias of previous row
-				return (String) jtKeyStore.getValueAt(row - 1, 3);
+				// last selected row is the last one, return alias of previous row
+				int min = Arrays.stream(rows).min().getAsInt();
+				if (min >= 1) {
+					idx = min - 1;
+				} else {
+					idx = -1;
+					Arrays.sort(rows);
+					for (int i = rows.length - 1; i >= 1; i--) {
+						if (rows[i] - rows[i - 1] > 1) { // found a gap
+							idx = rows[i] - 1;
+							break;
+						}
+					}
+				}
+			}
+			if (idx >= 0) {
+				return (String) jtKeyStore.getValueAt(idx, 3);
+			} else {
+				return null;
 			}
 		}
 	}
@@ -2541,14 +2590,16 @@ public final class KseFrame implements StatusBar {
 		return jtKeyStore.getModel().getRowCount();
 	}
 
-	private void setSelectedEntryByAlias(String alias) {
+	public void setSelectedEntriesByAliases(String... aliases) {
 		JTable jtKeyStore = getActiveKeyStoreTable();
 		jtKeyStore.requestFocusInWindow();
 
+		ListSelectionModel selectionModel = jtKeyStore.getSelectionModel();
+		selectionModel.clearSelection();
+		Set<String> aliasesToSelect = new HashSet<>(Arrays.asList(aliases));
 		for (int i = 0; i < jtKeyStore.getRowCount(); i++) {
-			if (alias.equals(jtKeyStore.getValueAt(i, 3))) {
-				jtKeyStore.setRowSelectionInterval(i, i);
-				break;
+			if (aliasesToSelect.contains(jtKeyStore.getValueAt(i, 3))) {
+				selectionModel.addSelectionInterval(i, i);
 			}
 		}
 	}
@@ -2573,13 +2624,13 @@ public final class KseFrame implements StatusBar {
 		// Reload KeyStore in table if it has changed
 		if (keyStoreContentsChanged) {
 			try {
-				String selectedAlias = getSelectedEntryAlias();
+				String[] selectedAliases = getSelectedEntryAliases();
 
 				((KeyStoreTableModel) getActiveKeyStoreTable().getModel()).load(history);
 
 				// Loading the model loses the selected entry - preserve it
-				if (selectedAlias != null) {
-					setSelectedEntryByAlias(selectedAlias);
+				if (selectedAliases.length > 0) {
+					setSelectedEntriesByAliases(selectedAliases);
 				}
 			} catch (GeneralSecurityException | CryptoException ex) {
 				DError.displayError(frame, ex);

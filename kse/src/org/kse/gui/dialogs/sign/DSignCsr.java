@@ -31,7 +31,6 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
@@ -51,7 +50,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
-import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -63,6 +61,7 @@ import javax.swing.KeyStroke;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
+import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -80,11 +79,9 @@ import org.kse.crypto.signing.SignatureType;
 import org.kse.crypto.x509.X500NameUtils;
 import org.kse.crypto.x509.X509CertificateVersion;
 import org.kse.crypto.x509.X509ExtensionSet;
-import org.kse.gui.CurrentDirectory;
+import org.kse.crypto.x509.X509ExtensionSetUpdater;
 import org.kse.gui.CursorUtil;
-import org.kse.gui.FileChooserFactory;
 import org.kse.gui.JEscDialog;
-import org.kse.gui.JavaFXFileChooser;
 import org.kse.gui.MiGUtil;
 import org.kse.gui.PlatformUtil;
 import org.kse.gui.crypto.JDistinguishedName;
@@ -99,7 +96,6 @@ import org.kse.gui.dialogs.extensions.DViewExtensions;
 import org.kse.gui.error.DError;
 import org.kse.utilities.DialogViewer;
 import org.kse.utilities.asn1.Asn1Exception;
-import org.kse.utilities.io.FileNameUtil;
 
 import net.miginfocom.swing.MigLayout;
 
@@ -146,9 +142,6 @@ public class DSignCsr extends JEscDialog {
 	private JValidityPeriod jvpValidityPeriod;
 	private JLabel jlSerialNumber;
 	private JTextField jtfSerialNumber;
-	private JLabel jlCaReplyFile;
-	private JTextField jtfCaReplyFile;
-	private JButton jbBrowse;
 	private JButton jbTransferExtensions;
 	private JButton jbAddExtensions;
 	private JButton jbOK;
@@ -156,10 +149,9 @@ public class DSignCsr extends JEscDialog {
 
 	private PrivateKey signPrivateKey;
 	private KeyPairType signKeyPairType;
-	private X509Certificate verificationCertificate;
+	private X509Certificate issuerCertificate;
 	private PKCS10CertificationRequest pkcs10Csr;
 	private Spkac spkacCsr;
-	private File csrFile;
 	private PublicKey csrPublicKey;
 	private X509CertificateVersion version;
 	private SignatureType signatureType;
@@ -167,7 +159,6 @@ public class DSignCsr extends JEscDialog {
 	private Date validityEnd;
 	private BigInteger serialNumber;
 	private X500Name subjectDN;
-	private File caReplyFile;
 	private X509ExtensionSet extensions = new X509ExtensionSet();
 
 
@@ -178,25 +169,22 @@ public class DSignCsr extends JEscDialog {
 	 *            The parent frame
 	 * @param pkcs10Csr
 	 *            The PKCS #10 formatted CSR
-	 * @param csrFile
-	 *            The CSR file
 	 * @param signPrivateKey
 	 *            Signing private key
 	 * @param signKeyPairType
 	 *            Signing key pair's type
-	 * @param verificationCertificate
-	 *            Verification certificate
+	 * @param issuerCertificate
+	 *            Issuer certificate
 	 * @throws CryptoException
 	 *             A crypto problem was encountered constructing the dialog
 	 */
-	public DSignCsr(JFrame parent, PKCS10CertificationRequest pkcs10Csr, File csrFile, PrivateKey signPrivateKey,
-			KeyPairType signKeyPairType, X509Certificate verificationCertificate) throws CryptoException {
+	public DSignCsr(JFrame parent, PKCS10CertificationRequest pkcs10Csr, PrivateKey signPrivateKey,
+			KeyPairType signKeyPairType, X509Certificate issuerCertificate) throws CryptoException {
 		super(parent, Dialog.ModalityType.DOCUMENT_MODAL);
 		this.pkcs10Csr = pkcs10Csr;
-		this.csrFile = csrFile;
 		this.signPrivateKey = signPrivateKey;
 		this.signKeyPairType = signKeyPairType;
-		this.verificationCertificate = verificationCertificate;
+		this.issuerCertificate = issuerCertificate;
 		setTitle(res.getString("DSignCsr.Title"));
 		initComponents();
 	}
@@ -208,25 +196,22 @@ public class DSignCsr extends JEscDialog {
 	 *            The parent frame
 	 * @param spkacCsr
 	 *            The SPKAC formatted CSR
-	 * @param csrFile
-	 *            The CSR file
 	 * @param signPrivateKey
 	 *            Signing private key
 	 * @param signKeyPairType
 	 *            Signing key pair's type
-	 * @param verificationCertificate
-	 *            Verification certificate
+	 * @param issuerCertificate
+	 *            Issuer certificate
 	 * @throws CryptoException
 	 *             A crypto problem was encountered constructing the dialog
 	 */
-	public DSignCsr(JFrame parent, Spkac spkacCsr, File csrFile, PrivateKey signPrivateKey, KeyPairType signKeyPairType,
-			X509Certificate verificationCertificate) throws CryptoException {
+	public DSignCsr(JFrame parent, Spkac spkacCsr, PrivateKey signPrivateKey, KeyPairType signKeyPairType,
+			X509Certificate issuerCertificate) throws CryptoException {
 		super(parent, Dialog.ModalityType.DOCUMENT_MODAL);
 		this.spkacCsr = spkacCsr;
-		this.csrFile = csrFile;
 		this.signPrivateKey = signPrivateKey;
 		this.signKeyPairType = signKeyPairType;
-		this.verificationCertificate = verificationCertificate;
+		this.issuerCertificate = issuerCertificate;
 		setTitle(res.getString("DSignCsr.Title"));
 		initComponents();
 	}
@@ -295,7 +280,7 @@ public class DSignCsr extends JEscDialog {
 
 		jlSignatureAlgorithm = new JLabel(res.getString("DSignCsr.jlSignatureAlgorithm.text"));
 
-		jcbSignatureAlgorithm = new JComboBox<SignatureType>();
+		jcbSignatureAlgorithm = new JComboBox<>();
 		jcbSignatureAlgorithm.setMaximumRowCount(10);
 		DialogHelper.populateSigAlgs(signKeyPairType, this.signPrivateKey, jcbSignatureAlgorithm);
 		jcbSignatureAlgorithm.setToolTipText(res.getString("DSignCsr.jcbSignatureAlgorithm.tooltip"));
@@ -328,15 +313,6 @@ public class DSignCsr extends JEscDialog {
 
 		jtfSerialNumber = new JTextField("" + generateSerialNumber(), 15);
 		jtfSerialNumber.setToolTipText(res.getString("DSignCsr.jtfSerialNumber.tooltip"));
-
-		jlCaReplyFile = new JLabel(res.getString("DSignCsr.jlCaReplyFile.text"));
-
-		jtfCaReplyFile = new JTextField(40);
-		jtfCaReplyFile.setToolTipText(res.getString("DSignCsr.jtfCaReplyFile.tooltip"));
-
-		jbBrowse = new JButton(res.getString("DSignCsr.jbBrowse.text"));
-		jbBrowse.setToolTipText(res.getString("DSignCsr.jbBrowse.tooltip"));
-		PlatformUtil.setMnemonic(jbBrowse, res.getString("DSignCsr.jbBrowse.mnemonic").charAt(0));
 
 		jbTransferExtensions = new JButton(res.getString("DSignCsr.jbTransferExtensions.text"));
 		jbTransferExtensions.setMnemonic(res.getString("DSignCsr.jbTransferExtensions.mnemonic").charAt(0));
@@ -387,9 +363,6 @@ public class DSignCsr extends JEscDialog {
 		pane.add(jdtValidityEnd, "wrap");
 		pane.add(jlSerialNumber, "");
 		pane.add(jtfSerialNumber, "wrap");
-		pane.add(jlCaReplyFile, "");
-		pane.add(jtfCaReplyFile, "split 2");
-		pane.add(jbBrowse, "wrap");
 		pane.add(jbTransferExtensions, "spanx, split 2");
 		pane.add(jbAddExtensions, "wrap");
 		pane.add(new JSeparator(), "spanx, growx, wrap");
@@ -453,8 +426,7 @@ public class DSignCsr extends JEscDialog {
 					startDate = new Date();
 					jdtValidityStart.setDateTime(startDate);
 				}
-				Date validityEnd = jvpValidityPeriod.getValidityEnd(startDate);
-				jdtValidityEnd.setDateTime(validityEnd);
+				jdtValidityEnd.setDateTime(jvpValidityPeriod.getValidityEnd(startDate));
 
 			}
 		});
@@ -484,18 +456,6 @@ public class DSignCsr extends JEscDialog {
 				try {
 					CursorUtil.setCursorBusy(DSignCsr.this);
 					addExtensionsPressed();
-				} finally {
-					CursorUtil.setCursorFree(DSignCsr.this);
-				}
-			}
-		});
-
-		jbBrowse.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent evt) {
-				try {
-					CursorUtil.setCursorBusy(DSignCsr.this);
-					browsePressed();
 				} finally {
 					CursorUtil.setCursorFree(DSignCsr.this);
 				}
@@ -546,8 +506,6 @@ public class DSignCsr extends JEscDialog {
 		}
 
 		jdnSubjectDN.setDistinguishedName(pkcs10Csr.getSubject());
-
-		populateCaReplyFileName();
 	}
 
 	private void populatePkcs10CsrDetails() throws CryptoException {
@@ -565,7 +523,8 @@ public class DSignCsr extends JEscDialog {
 		populatePublicKey();
 
 		String sigAlgId = pkcs10Csr.getSignatureAlgorithm().getAlgorithm().getId();
-		SignatureType sigAlg = SignatureType.resolveOid(sigAlgId);
+		byte[] sigAlgParams = extractSigAlgParams();
+		SignatureType sigAlg = SignatureType.resolveOid(sigAlgId, sigAlgParams);
 
 		if (sigAlg != null) {
 			jtfCsrSignatureAlgorithm.setText(sigAlg.friendly());
@@ -588,6 +547,14 @@ public class DSignCsr extends JEscDialog {
 
 	}
 
+	private byte[] extractSigAlgParams() {
+		ASN1Encodable sigAlgParamsAsn1 = pkcs10Csr.getSignatureAlgorithm().getParameters();
+		try {
+			return sigAlgParamsAsn1 == null ? null : sigAlgParamsAsn1.toASN1Primitive().getEncoded();
+		} catch (IOException e) {
+			return null;
+		}
+	}
 
 	private void populateSpkacCsrDetails() throws CryptoException {
 		jtfCsrFormat.setText(res.getString("DSignCsr.jtfCsrFormat.Spkac.text"));
@@ -625,12 +592,6 @@ public class DSignCsr extends JEscDialog {
 
 	private long generateSerialNumber() {
 		return System.currentTimeMillis() / 1000;
-	}
-
-	private void populateCaReplyFileName() {
-		String replyFileName = FileNameUtil.removeExtension(csrFile.getName()) + ".p7r";
-		File replyFile = new File(csrFile.getParentFile(), replyFileName);
-		jtfCaReplyFile.setText(replyFile.getPath());
 	}
 
 	private void extensionsPressed() {
@@ -733,15 +694,6 @@ public class DSignCsr extends JEscDialog {
 	}
 
 	/**
-	 * Get chosen CA Reply file.
-	 *
-	 * @return CA Reply file or null if dialog cancelled
-	 */
-	public File getCaReplyFile() {
-		return caReplyFile;
-	}
-
-	/**
 	 * Get chosen certficate extensions.
 	 *
 	 * @return Certificate extensions or null if dialog cancelled.
@@ -752,43 +704,30 @@ public class DSignCsr extends JEscDialog {
 
 	protected void transferExtensionsPressed() {
 		extensions = Pkcs10Util.getExtensions(pkcs10Csr);
+
+		// the value of some extensions (e.g. AKI) might be out-dated
+		try {
+			X509ExtensionSetUpdater.update(
+					extensions,
+					csrPublicKey,
+					issuerCertificate.getPublicKey(),
+					X500NameUtils.x500PrincipalToX500Name(issuerCertificate.getSubjectX500Principal()),
+					issuerCertificate.getSerialNumber());
+		} catch (CryptoException | IOException e) {
+			DError.displayError(this, e);
+		}
 	}
 
 	private void addExtensionsPressed() {
-		DAddExtensions dAddExtensions = new DAddExtensions(this, extensions, verificationCertificate.getPublicKey(),
-				X500NameUtils.x500PrincipalToX500Name(verificationCertificate.getSubjectX500Principal()),
-				verificationCertificate.getSerialNumber(), csrPublicKey);
+		DAddExtensions dAddExtensions = new DAddExtensions(this, extensions, issuerCertificate.getPublicKey(),
+				X500NameUtils.x500PrincipalToX500Name(issuerCertificate.getSubjectX500Principal()),
+				issuerCertificate.getSerialNumber(), csrPublicKey);
 		dAddExtensions.setLocationRelativeTo(this);
 		dAddExtensions.setVisible(true);
 
 		if (dAddExtensions.getExtensions() != null) {
 			// Dialog not cancelled
 			extensions = dAddExtensions.getExtensions();
-		}
-	}
-
-	private void browsePressed() {
-		JFileChooser chooser = FileChooserFactory.getCaReplyFileChooser();
-
-		File currentExportFile = new File(jtfCaReplyFile.getText().trim());
-
-		if (currentExportFile.getParentFile() != null && currentExportFile.getParentFile().exists()) {
-			chooser.setCurrentDirectory(currentExportFile.getParentFile());
-			chooser.setSelectedFile(currentExportFile);
-		} else {
-			chooser.setCurrentDirectory(CurrentDirectory.get());
-		}
-
-		chooser.setDialogTitle(res.getString("DSignCsr.SaveCaReply.Title"));
-		chooser.setMultiSelectionEnabled(false);
-
-		int rtnValue = JavaFXFileChooser.isFxAvailable() ? chooser.showSaveDialog(this)
-				: chooser.showDialog(this, res.getString("DSignCsr.SaveCaReply.button"));
-		if (rtnValue == JFileChooser.APPROVE_OPTION) {
-			File chosenFile = chooser.getSelectedFile();
-			CurrentDirectory.updateForFile(chosenFile);
-			jtfCaReplyFile.setText(chosenFile.toString());
-			jtfCaReplyFile.setCaretPosition(0);
 		}
 	}
 
@@ -830,27 +769,6 @@ public class DSignCsr extends JEscDialog {
 			return;
 		}
 
-		String exportFileStr = jtfCaReplyFile.getText().trim();
-
-		if (exportFileStr.length() == 0) {
-			JOptionPane.showMessageDialog(this, res.getString("DSignCsr.CaReplyFileRequired.message"), getTitle(),
-					JOptionPane.WARNING_MESSAGE);
-			return;
-		}
-
-		File caReplyFile = new File(exportFileStr);
-
-		if (caReplyFile.isFile()) {
-			String message = MessageFormat.format(res.getString("DSignCsr.OverWriteCaReplyFile.message"), caReplyFile);
-
-			int selected = JOptionPane.showConfirmDialog(this, message, getTitle(), JOptionPane.YES_NO_OPTION);
-			if (selected != JOptionPane.YES_OPTION) {
-				return;
-			}
-		}
-
-		this.caReplyFile = caReplyFile;
-
 		if (jrbVersion1.isSelected()) {
 			version = VERSION1;
 			extensions = null;
@@ -879,6 +797,7 @@ public class DSignCsr extends JEscDialog {
 
 	// for quick testing
 	public static void main(String[] args) throws Exception {
+		DialogViewer.prepare();
 		KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA", "BC");
 		keyGen.initialize(1024);
 		KeyPair keyPair = keyGen.genKeyPair();
@@ -887,8 +806,7 @@ public class DSignCsr extends JEscDialog {
 		PKCS10CertificationRequest csr = csrBuilder
 				.build(new JcaContentSignerBuilder("SHA256withRSA").setProvider("BC").build(keyPair.getPrivate()));
 
-		DSignCsr dialog = new DSignCsr(new javax.swing.JFrame(), csr,
-				new File(System.getProperty("user.dir"), "test.csr"), keyPair.getPrivate(), KeyPairType.RSA, null);
+		DSignCsr dialog = new DSignCsr(new javax.swing.JFrame(), csr, keyPair.getPrivate(), KeyPairType.RSA, null);
 		DialogViewer.run(dialog);
 	}
 }

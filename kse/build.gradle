@@ -27,11 +27,12 @@ Notes:
 - Tasks 'signapp' and 'dmg' work only under macOS.
 */
 plugins {
+	id 'application'
 	id 'java'
 	id 'eclipse'
 	id 'idea'
 	id 'nebula.ospackage' version '8.3.0'
-	id 'org.beryx.jlink' version '2.16.2'
+	id 'org.beryx.runtime' version '1.8.4'
 }
 
 defaultTasks 'zip'
@@ -70,7 +71,7 @@ ext {
 	iconsDir = "$resDir/icons"
 	licensesDir = "$resDir/licenses"
 	readmesDir = "$resDir/readmes"
-	launch4jOutDir = "$buildDir/launch4j"
+	launcherOutDir = "$buildDir/launcher"
 	appBundleDir = "$buildDir/appBundle"
 	distDir = "$buildDir/$distsDirName"
 	dmgDir = "$projectDir/dmg"
@@ -88,28 +89,35 @@ ext {
 	website = "https://keystore-explorer.org"
 
 	// Main class (for manifest entry)
-	mainClass = "org.kse.KSE"
+	mainClassName = "org.kse.KSE"
+}
+
+application {
+	mainClass = project.mainClassName
 }
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
+// always show stacktrace when build fails
+gradle.startParameter.showStacktrace = org.gradle.api.logging.configuration.ShowStacktrace.ALWAYS
+
 dependencies {
-	compile group: 'org.bouncycastle', name: 'bcpkix-jdk15on', version: '1.64'
-	compile group: 'net.java.dev.jna', name: 'jna', version: '5.3.1'
-	compile group: 'commons-io', name: 'commons-io', version: '2.6'
+	compile group: 'org.bouncycastle', name: 'bcpkix-jdk15on', version: '1.68'
+	compile group: 'net.java.dev.jna', name: 'jna', version: '5.6.0'
+	compile group: 'commons-io', name: 'commons-io', version: '2.8.0'
 	compile group: 'com.miglayout', name: 'miglayout-swing', version: '5.2'
-	compile group: 'com.formdev', name: 'flatlaf', version: '0.21'
+	compile group: 'com.formdev', name: 'flatlaf', version: '0.46'
 
 	// VAqua Look & Feel not in a public repository yet
-	if (file("lib/VAqua7.jar").exists()) {
-		compile files('lib/VAqua7.jar')
+	if (file("lib/VAqua8.jar").exists()) {
+		compile files('lib/VAqua8.jar')
 	}
 
-	testCompile("org.assertj:assertj-core:3.11.1")
-	testCompile("org.junit.jupiter:junit-jupiter-api:5.5.1")
-	testCompile("org.junit.jupiter:junit-jupiter-params:5.5.1")
-	testRuntime("org.junit.jupiter:junit-jupiter-engine:5.5.1")
+	testCompile("org.assertj:assertj-core:3.16.1")
+	testCompile("org.junit.jupiter:junit-jupiter-api:5.7.0")
+	testCompile("org.junit.jupiter:junit-jupiter-params:5.7.0")
+	testRuntime("org.junit.jupiter:junit-jupiter-engine:5.7.0")
 
 	// To avoid compiler warnings about @API annotations in JUnit code:
 	testCompileOnly('org.apiguardian:apiguardian-api:1.1.0')
@@ -126,7 +134,7 @@ jar {
 					'Specification-Title': project.appName,
 					'Specification-Version': project.version,
 					'Specification-Vendor': project.vendor,
-					'Main-Class': project.mainClass,
+					'Main-Class': project.mainClassName,
 					'Class-Path': configurations.compile.collect { 'lib/' + it.getName() }.join(' '),
 					'Built-Date': new Date().format("yyyy-MM-dd HH:mm:ss"),
 					'SplashScreen-Image': 'org/kse/gui/images/splash.png',
@@ -135,44 +143,35 @@ jar {
 	}
 }
 
-task launch4j(dependsOn: jar) {
+task prepareExe() {
 	doLast {
-		ant.taskdef(name: 'launch4j', classname: 'net.sf.launch4j.ant.Launch4jTask') {
-			classpath {
-				fileset(dir: 'launch4j', includes: 'launch4j.jar,lib/xstream.jar' )
-			}
+		copy {
+			from("$resDir/kse-launcher.exe")
+			rename("kse-launcher.exe", "$appExe")
+			into("$launcherOutDir")
 		}
-		mkdir launch4jOutDir
-		ant.launch4j() {
-			config(headerType: "gui",
-					jarpath: appJarName,
-					outfile: "$launch4jOutDir/$appExe",
-					dontWrapJar: "true",
-					errTitle: appName,
-					stayAlive: "false",
-					icon: kseIco ) {
-				jre(minVersion: "1.8.0", path: "jre") {
-					opt = "-Dkse.exe=true"
-				}
-				versionInfo(fileVersion: "$appVersion.0",
-							fileDescription: appName,
-							copyright: copyright,
-							internalName: appSimpleName,
-							originalFilename: appExe,
-							productName: appName,
-							productVersion: "$appVersion.0",
-							txtFileVersion: appVersion,
-							txtProductVersion: appVersion )
-			}
+		exec {
+			workingDir projectDir
+			// rcedit-x64.exe from https://github.com/electron/rcedit has to be in the PATH
+			commandLine "rcedit-x64.exe", 
+						"$launcherOutDir\\$appExe",
+						'--set-version-string', 'FileDescription', "$appName",
+						'--set-version-string', 'ProductName', "$appName",
+						'--set-version-string', 'LegalCopyright', "$copyright",
+						'--set-version-string', 'OriginalFilename', "$appExe",
+						'--set-version-string', 'InternalName', "$appSimpleName",
+						'--set-file-version', "$appVersion.0",
+						'--set-product-version', "$appVersion",
+						'--set-icon', "$kseIco"
 		}
 	}
 }
 
-task zip(type: Zip, dependsOn: launch4j) {
+task zip(type: Zip, dependsOn: prepareExe) {
 	version = appSimpleVersion
 	into(distFileNamePrefix) {
 		from jar.archivePath
-		from "$launch4jOutDir/$appExe"
+		from "$launcherOutDir/$appExe"
 		from(resDir) {
 			include 'kse.sh'
 			fileMode 0755
@@ -204,7 +203,7 @@ task copyDependencies(type: Copy) {
    into dependenciesDir
 }
 
-task nsis(dependsOn: [launch4j, copyDependencies]) {
+task nsis(dependsOn: [prepareExe, copyDependencies]) {
 	doLast {
 		def nsisScript = "kse.nsi"
 		mkdir distDir
@@ -220,7 +219,7 @@ task nsis(dependsOn: [launch4j, copyDependencies]) {
 				LICENSES_DIR: licensesDir.toString(),
 				JAR_DIR: libsDir.toString(),
 				LIB_DIR: dependenciesDir.toString(),
-				LAUNCH4J_DIR: launch4jOutDir.toString(),
+				LAUNCH4J_DIR: launcherOutDir.toString(),
 				DIST_DIR: distDir.toString()
 			])
 			into("nsis")
@@ -248,13 +247,34 @@ task appbundler(dependsOn: [jar, copyDependencies]) {
 					shortversion: appVersion,  // The release version number is a string composed of three period-separated integers.
 					version: appVersion, // The build version number should be a string comprised of three non-negative, period-separated integers with the first integer being greater than zero�for example, 3.1.2.
 					icon: kseIcns,
-					mainclassname: mainClass,
+					mainclassname: mainClassName,
 					copyright: copyright,
 					applicationCategory: "public.app-category.developer-tools"
 					) {
 			classpath(dir: dependenciesDir)
 			classpath(file: jar.archivePath)
 			arch(name: "x86_64")
+
+			jlink(runtime: System.properties.'java.home') {
+				jmod(name: "java.datatransfer")
+				jmod(name: "java.desktop")
+				jmod(name: "java.logging")
+				jmod(name: "java.naming")
+				jmod(name: "java.prefs")
+				jmod(name: "java.scripting")
+				jmod(name: "jdk.localedata")
+				jmod(name: "jdk.charsets")
+				jmod(name: "jdk.crypto.ec")
+				jmod(name: "jdk.security.auth")
+				jmod(name: "jdk.crypto.cryptoki")
+				
+				argument(value: "--compress=2")
+				argument(value: "--no-header-files")
+				argument(value: "--no-man-pages")
+				argument(value: "--strip-debug")
+				argument(value: "--include-locales=en,de,fr")
+			}
+
 			bundledocument(extensions: "ks,jks,jceks,keystore,bks,uber,pfx,p12",
 							icon: keystoreIcns,
 							name: "KeyStore",
@@ -271,16 +291,50 @@ task appbundler(dependsOn: [jar, copyDependencies]) {
 	}
 }
 
-task signapp(type: Exec, dependsOn: appbundler) {
-	workingDir appBundleDir
-	commandLine 'codesign', '--options=runtime', '-s', 'Kai Kramer', "${appBundle}"
+task signapp(dependsOn: appbundler) {
+	def javaBaseDirName = new File(System.properties.'java.home').getParentFile().getParentFile().getName()
+	doLast {
+		exec {
+			workingDir appBundleDir
+			commandLine 'codesign', 
+						'-vvv', 
+						'--force', 
+						'--options=runtime', 
+						'--entitlements', "${dmgDir}/entitlements.xml", 
+						'-s', 'Kai Kramer', 
+						"${appBundle}/Contents/PlugIns/${javaBaseDirName}"
+		}
+		exec {
+			workingDir appBundleDir
+			commandLine 'codesign', 
+						'-vvv', 
+						'--force', 
+						'--options=runtime', 
+						'--entitlements', "${dmgDir}/entitlements.xml", 
+						'-s', 'Kai Kramer', 
+						"${appBundle}"
+		}
+	}
 }
 
 task dmg(type: Exec, dependsOn: signapp) {
-	workingDir appBundleDir
 	mkdir distDir
-	commandLine 'sh', "${dmgDir}/create-dmg.sh", "${appBundleDir}/${appBundle}", "${distDir}/${appSimpleName}-${appSimpleVersion}.dmg"
+	new File("${distDir}/${appSimpleName}-${appSimpleVersion}.dmg").delete()
+	workingDir buildDir
+	commandLine 'create-dmg', 
+	  "--volname", "KeyStore Explorer", 
+	  "--volicon", "${projectDir}/dmg/kse.icns", 
+	  "--background", "${projectDir}/dmg/background.png", 
+	  "--window-pos", "400", "40", 
+	  "--window-size", "515", "271", 
+	  "--icon-size", "128", 
+	  "--icon", "${appBundle}", "150", "130", 
+	  "--hide-extension", "${appBundle}", 
+	  "--app-drop-link", "370", "130", 
+	  "${distDir}/${appSimpleName}-${appSimpleVersion}.dmg", 
+	  "${appBundleDir}"	
 }
+
 
 // common part for RPM and DEB
 ospackage {
@@ -351,15 +405,4 @@ buildDeb {
 	arch = "all"
 	requires("default-jre").or("java8-runtime")
 }
-
-//task jlink(type: Exec) {
-//	def javaHome = System.properties.'java.home'
-//	workingDir "$buildDir"
-//
-//	commandLine "${javaHome}/bin/jlink",
-//		'--module-path', "${javaHome}/jmods",
-//		'--strip-debug', '--no-header-files', '--no-man-pages', '--include-locales=en,de,fr',
-//		'--add-modules', 'java.datatransfer,java.desktop,java.logging,java.naming,java.prefs,java.scripting,jdk.localedata,jdk.charsets,jdk.crypto.ec,jdk.security.auth,jdk.crypto.cryptoki,jdk.crypto.mscapi',
-//		'--output', 'jre'
-//}
 
